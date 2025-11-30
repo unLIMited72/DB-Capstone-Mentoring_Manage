@@ -22,4 +22,6 @@ public interface PostApplicationRepository extends JpaRepository<PostApplication
         Long toUserId,
         ApplicationStatus status
     );
+
+    long countByStatus(ApplicationStatus status);
 }

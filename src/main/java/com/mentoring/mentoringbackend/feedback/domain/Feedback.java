@@ -1,5 +1,5 @@
 package com.mentoring.mentoringbackend.feedback.domain;
-
+import com.mentoring.mentoringbackend.feedback.domain.FeedbackTargetType;
 import com.mentoring.mentoringbackend.session.domain.Session;
 import com.mentoring.mentoringbackend.user.domain.User;
 import com.mentoring.mentoringbackend.workspace.domain.Workspace;
@@ -39,6 +39,16 @@ public class Feedback {
     @JoinColumn(name = "from_user_id", nullable = false)
     private User fromUser;
 
+    // ✅ 추가: 평가 대상 유저 (멘토/멘티, 전체 평가면 null)
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "to_user_id")
+    private User toUser;
+
+    // ✅ 추가: 어떤 타입의 평가인지
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_type", nullable = false)
+    private FeedbackTargetType targetType;
+
     @Column(nullable = false)
     private Integer rating;   // 1~5
 
@@ -57,11 +67,11 @@ public class Feedback {
     private LocalDateTime updatedAt;
 
     // === 편의 메서드 ===
-
     public void update(Integer rating, String comment, Boolean anonymous, Session session) {
         if (rating != null) this.rating = rating;
         if (comment != null) this.comment = comment;
         if (anonymous != null) this.anonymous = anonymous;
         if (session != null) this.session = session;
+        // targetType / toUser는 생성 시 고정(보통 수정 안 하는게 자연스러움)
     }
 }

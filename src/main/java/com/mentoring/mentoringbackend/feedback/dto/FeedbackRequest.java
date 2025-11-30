@@ -1,5 +1,6 @@
 package com.mentoring.mentoringbackend.feedback.dto;
 
+import com.mentoring.mentoringbackend.feedback.domain.FeedbackTargetType;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -8,8 +9,14 @@ import lombok.Data;
 @Data
 public class FeedbackRequest {
 
-    // workspaceId 는 URL path 에서 받음
-    private Long sessionId;     // 특정 세션에 대한 피드백이면 설정, 아니면 null
+    private Long sessionId;   // 특정 세션에 대한 피드백이면 설정, 아니면 null
+
+    // ✅ 추가: 대상 유저 (프로그램 전체 평가면 null)
+    private Long toUserId;
+
+    // ✅ 추가: 어떤 타입의 피드백인지
+    @NotNull
+    private FeedbackTargetType targetType; // PROGRAM / MENTOR / MENTEE
 
     @NotNull
     @Min(1)

@@ -9,7 +9,6 @@ import com.mentoring.mentoringbackend.user.dto.UserSignupRequest;
 import com.mentoring.mentoringbackend.user.dto.UserProfileResponse;
 import com.mentoring.mentoringbackend.user.repository.UserRepository;
 import com.mentoring.mentoringbackend.user.service.UserSearchService;
-import com.mentoring.mentoringbackend.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;

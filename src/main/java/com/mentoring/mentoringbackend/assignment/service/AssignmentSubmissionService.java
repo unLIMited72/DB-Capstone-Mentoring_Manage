@@ -11,6 +11,7 @@ import com.mentoring.mentoringbackend.common.exception.ErrorCode;
 import com.mentoring.mentoringbackend.user.domain.User;
 import com.mentoring.mentoringbackend.user.repository.UserRepository;
 import com.mentoring.mentoringbackend.user.service.UserService;
+import com.mentoring.mentoringbackend.workspace.domain.WorkspaceRole;
 import com.mentoring.mentoringbackend.workspace.repository.WorkspaceMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,13 +35,28 @@ public class AssignmentSubmissionService {
         Long workspaceId = assignment.getWorkspace().getId();
 
         User me = userService.getCurrentUser();
+        // ✅ 일단 워크스페이스 멤버인지 확인
         validateWorkspaceMember(workspaceId, me.getId());
 
-        return assignmentSubmissionRepository.findAllByAssignmentId(assignmentId)
-                .stream()
+        // ✅ 내 역할이 멘토인지 확인
+        boolean isMentor = isMentor(workspaceId, me.getId());
+
+        // ✅ 멘토면 전체, 멘티면 자기 것만
+        List<AssignmentSubmission> submissions;
+        if (isMentor) {
+            // 멘토 → 과제에 대한 전체 제출 조회
+            submissions = assignmentSubmissionRepository.findAllByAssignmentId(assignmentId);
+        } else {
+            // 멘티 → 자기 제출만 조회
+            submissions = assignmentSubmissionRepository
+                    .findAllByAssignmentIdAndUserId(assignmentId, me.getId());
+        }
+
+        return submissions.stream()
                 .map(this::toResponse)
                 .toList();
     }
+
 
     @Transactional
     public AssignmentSubmissionResponse submitOrUpdate(Long assignmentId,
@@ -51,6 +67,20 @@ public class AssignmentSubmissionService {
         User operator = userService.getCurrentUser();
         validateWorkspaceMember(workspaceId, operator.getId());
         validateWorkspaceMember(workspaceId, request.getUserId());
+
+        // ✅ 멘티/멘토 역할 조회
+        boolean operatorIsMentor = isMentor(workspaceId, operator.getId());
+        boolean operatorIsMentee = isMentee(workspaceId, operator.getId());
+
+        // ✅ 멘티는 자기 것만 만질 수 있음
+        if (operatorIsMentee && !operatorIsMentor) {
+            if (!operator.getId().equals(request.getUserId())) {
+                throw new BusinessException(
+                        ErrorCode.FORBIDDEN,
+                        "멘티는 자신의 과제 제출만 수정할 수 있습니다."
+                );
+            }
+        }
 
         User targetUser = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "사용자를 찾을 수 없습니다."));
@@ -66,13 +96,24 @@ public class AssignmentSubmissionService {
                     .build();
         }
 
-        // 멘티 제출
-        if (request.getContent() != null) {
-            submission.submit(request.getContent());
+        // === 역할에 따라 허용되는 변경 범위 분리 ===
+
+        // 1) 멘티: content만 제출/수정 가능
+        if (operatorIsMentee && !operatorIsMentor) {
+            if (request.getContent() != null) {
+                submission.submit(request.getContent());
+            }
+            // feedback/score는 무시
         }
 
-        // 멘토 피드백/점수
-        submission.updateFeedback(request.getFeedback(), request.getScore());
+        // 2) 멘토: feedback/score 수정, (원하면 content도 허용 가능)
+        if (operatorIsMentor) {
+            if (request.getContent() != null) {
+                // 정책상 멘토가 content를 덮어쓰게 하고 싶지 않다면 이 부분은 빼도 됨
+                submission.submit(request.getContent());
+            }
+            submission.updateFeedback(request.getFeedback(), request.getScore());
+        }
 
         // 아무 내용도 없으면 저장 의미 X
         if (submission.getContent() == null
@@ -100,6 +141,16 @@ public class AssignmentSubmissionService {
         if (!isMember) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "해당 워크스페이스의 구성원이 아닙니다.");
         }
+    }
+
+    private boolean isMentor(Long workspaceId, Long userId) {
+        return workspaceMemberRepository
+                .existsByWorkspaceIdAndUserIdAndRole(workspaceId, userId, WorkspaceRole.MENTOR);
+    }
+
+    private boolean isMentee(Long workspaceId, Long userId) {
+        return workspaceMemberRepository
+                .existsByWorkspaceIdAndUserIdAndRole(workspaceId, userId, WorkspaceRole.MENTEE);
     }
 
     private AssignmentSubmissionResponse toResponse(AssignmentSubmission submission) {
