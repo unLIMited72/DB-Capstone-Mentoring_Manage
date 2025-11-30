@@ -104,23 +104,28 @@ public class UserService {
     @Transactional
     public List<ContactInfo> updateMyContactInfos(List<ContactInfoRequest> requests) {
         User me = getCurrentUser();
-        contactInfoRepository.deleteAllByUserId(me.getId());
+
+    // 🔹 이제는 "글로벌 연락처"만 초기화
+        contactInfoRepository.deleteAllByUserIdAndWorkspaceIsNull(me.getId());
 
         List<ContactInfo> list = requests.stream()
-                .map(req -> ContactInfo.builder()
-                        .user(me)
-                        .type(req.getType())
-                        .value(req.getValue())
-                        .primary(req.isPrimary())
-                        .visibleToWorkspaceMembers(req.isVisibleToWorkspaceMembers())
-                        .build())
-                .toList();
+            .map(req -> ContactInfo.builder()
+                    .user(me)
+                    .workspace(null)  // ✅ 글로벌 프로필용 연락처
+                    .type(req.getType())
+                    .value(req.getValue())
+                    .primary(req.isPrimary())
+                    .visibleToWorkspaceMembers(req.isVisibleToWorkspaceMembers())
+                    .build())
+            .toList();
 
         return contactInfoRepository.saveAll(list);
     }
 
     public List<ContactInfo> getMyContactInfos() {
         User me = getCurrentUser();
-        return contactInfoRepository.findAllByUserId(me.getId());
+        // 🔹 글로벌 연락처만 반환
+        return contactInfoRepository.findAllByUserIdAndWorkspaceIsNull(me.getId());
     }
+
 }

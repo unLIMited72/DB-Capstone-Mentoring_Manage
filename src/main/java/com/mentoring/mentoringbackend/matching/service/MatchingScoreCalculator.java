@@ -29,18 +29,12 @@ public class MatchingScoreCalculator {
     }
 
     /**
-     * 시간대 겹침 점수
-     * - hasOverlap=true 이면 1.0
-     * - 아니면 0.0
-     */
-    public double calculateTimeScore(boolean hasOverlap) {
-        return hasOverlap ? 1.0 : 0.0;
-    }
+    * 전체 점수 = 태그 영역 점수 * weightTag + (시간/모드/전공 등 비태그 영역 점수) * weightTime
+    *  - tagScore  : 태그 기반 유사도 (멘티-멘토, 멘티-게시글 태그 조합)
+    *  - timeScore : 시간/모드/전공 등을 종합한 점수 (0.0 ~ 1.0 범위 권장)
+    * config 가 null 이면 기본값 사용 (태그 0.7, 비태그 0.3, minScore 0.3)
+    */
 
-    /**
-     * 전체 점수 = 태그*가중치 + 시간*가중치
-     * config 가 null 이면 기본값 사용 (태그 0.7, 시간 0.3, minScore 0.3)
-     */
     public double calculateTotalScore(double tagScore, double timeScore, MatchingConfig config) {
         double weightTag = 0.7;
         double weightTime = 0.3;

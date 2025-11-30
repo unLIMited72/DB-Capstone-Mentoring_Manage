@@ -37,5 +37,16 @@ public class WorkspaceDetailResponse {
         private String name;
         private WorkspaceRole role;
         private LocalDateTime joinedAt;
+
+        // 🔹 이 워크스페이스에서 볼 수 있는 연락처 목록
+        private List<Contact> contacts;
+    }
+
+    @Data
+    @Builder
+    public static class Contact {
+        private String type;   // EMAIL / KAKAO / DISCORD / PHONE / ...
+        private String value;  // 실제 주소/ID/번호
+        private boolean primary;
     }
 }
