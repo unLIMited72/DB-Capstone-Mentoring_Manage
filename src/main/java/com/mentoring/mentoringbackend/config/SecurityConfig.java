@@ -18,6 +18,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.Customizer;
+
 
 @Configuration
 @EnableMethodSecurity
@@ -31,6 +33,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
+                  // ✅ WebConfig 의 CORS 설정을 Spring Security도 사용하도록 연결
+                .cors(Customizer.withDefaults())
                 // CSRF 비활성화 (REST + JWT)
                 .csrf(AbstractHttpConfigurer::disable)
 

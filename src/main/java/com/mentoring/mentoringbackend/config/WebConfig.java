@@ -13,7 +13,9 @@ public class WebConfig implements WebMvcConfigurer {
                 // 프론트엔드 도메인(지금은 로컬 React 기준, 나중에 실제 도메인으로 교체하면 됨)
                 .allowedOrigins(
                         "http://localhost:3000",
-                        "http://127.0.0.1:3000"
+                        "http://127.0.0.1:3000",
+                        "http://localhost:5184",
+                        "http://127.0.0.1:5184" 
                 )
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
