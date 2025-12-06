@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/admin/dashboard")
+@RequestMapping({"/api/admin/dashboard", "/admin/dashboard"})
 public class AdminDashboardController {
 
     private final AdminDashboardService adminDashboardService;

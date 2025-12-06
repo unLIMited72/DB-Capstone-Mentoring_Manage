@@ -19,6 +19,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.Customizer;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 
 @Configuration
@@ -34,7 +39,7 @@ public class SecurityConfig {
 
         http
                   // ✅ WebConfig 의 CORS 설정을 Spring Security도 사용하도록 연결
-                .cors(Customizer.withDefaults())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // CSRF 비활성화 (REST + JWT)
                 .csrf(AbstractHttpConfigurer::disable)
 
@@ -130,4 +135,33 @@ public class SecurityConfig {
     ) throws Exception {
         return configuration.getAuthenticationManager();
     }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        // ✅ 프론트엔드 주소 등록
+        config.setAllowedOrigins(List.of(
+                "http://localhost:5178"
+                // 필요하면 여기 더 추가 가능
+                // "http://localhost:3000",
+                // "http://127.0.0.1:5173"
+        ));
+
+        // ✅ 허용할 HTTP 메서드
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        // ✅ 허용할 헤더
+        config.setAllowedHeaders(List.of("*"));
+
+        // ✅ 자격 증명(쿠키/Authorization 헤더) 허용
+        config.setAllowCredentials(true);
+
+        // ✅ 어떤 URL 패턴에 이 설정을 적용할지
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+
+        return source;
+    }
+
 }
