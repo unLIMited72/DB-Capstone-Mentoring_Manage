@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/academic/programs")   // ?? ���⿡�� /api ����!
+@RequestMapping("/academic/programs")
 public class ProgramController {
 
     private final AcademicService academicService;
@@ -32,6 +32,7 @@ public class ProgramController {
                 .build();
 
         return List.of(dummy);
+        // ���߿� DB ���� ��: return academicService.getPrograms(semesterId, activeOnly);
     }
 
     @PostMapping

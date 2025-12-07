@@ -12,7 +12,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/academic/majors")
+@RequestMapping("/academic/majors")
 public class MajorController {
 
     private final AcademicService academicService;
