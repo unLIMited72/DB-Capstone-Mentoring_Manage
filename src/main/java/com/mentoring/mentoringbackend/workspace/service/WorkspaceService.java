@@ -14,6 +14,7 @@ import com.mentoring.mentoringbackend.user.domain.User;
 import com.mentoring.mentoringbackend.user.repository.ContactInfoRepository;
 import com.mentoring.mentoringbackend.user.repository.UserRepository;
 import com.mentoring.mentoringbackend.user.service.UserService;
+import com.mentoring.mentoringbackend.user.domain.Role;
 import com.mentoring.mentoringbackend.workspace.domain.Workspace;
 import com.mentoring.mentoringbackend.workspace.domain.WorkspaceMember;
 import com.mentoring.mentoringbackend.workspace.domain.WorkspaceRole;
@@ -46,19 +47,20 @@ public class WorkspaceService {
     private final ContactInfoRepository contactInfoRepository;
 
     /**
-     * 관리자/운영자 등이 수동으로 워크스페이스를 생성하는 경우
+     * Create a workspace manually by admins/operators.
      */
     @Transactional
     public WorkspaceDetailResponse createWorkspace(WorkspaceCreateRequest request) {
+
         User creator = userService.getCurrentUser();
 
         Program program = programRepository.findById(request.getProgramId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "프로그램을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "Program not found."));
 
         Post sourcePost = null;
         if (request.getSourcePostId() != null) {
             sourcePost = postRepository.findById(request.getSourcePostId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "게시글을 찾을 수 없습니다."));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "Post not found."));
         }
 
         LocalDate startDate = Optional.ofNullable(request.getStartDate())
@@ -77,7 +79,7 @@ public class WorkspaceService {
 
         Workspace saved = workspaceRepository.save(workspace);
 
-        // 멤버 등록
+        // Register members
         List<WorkspaceMember> toSaveMembers = new ArrayList<>();
 
         if (request.getMentorIds() != null) {
@@ -94,7 +96,7 @@ public class WorkspaceService {
             }
         }
 
-        // 비어 있으면, 최소 생성자는 멘토로 넣어줘도 됨 (선택 로직)
+        // If no member specified �� creator becomes default mentor
         if (toSaveMembers.isEmpty()) {
             toSaveMembers.add(buildMember(saved, creator, WorkspaceRole.MENTOR));
         }
@@ -105,17 +107,18 @@ public class WorkspaceService {
     }
 
     /**
-     * PostApplication ACCEPT 시
-     * - 기존 워크스페이스가 있으면 재사용
-     * - 없으면 새로 생성
-     * => 멘토 1 + 멘티 N 구조 지원
+     * Create workspace automatically when a PostApplication is ACCEPTED.
+     * If an ACTIVE workspace already exists �� reuse it.
+     * Otherwise �� create a new one.
+     * Supports mentor 1 : N mentees.
      */
     @Transactional
     public Workspace createWorkspaceFromAcceptedApplication(PostApplication application) {
+
         Post post = application.getPost();
         Program program = post.getProgram();
 
-        // 1) 같은 프로그램 + 같은 sourcePost + ACTIVE 상태 워크스페이스가 있으면 재사용
+        // 1) Find an existing ACTIVE workspace for this program + post
         Workspace workspace = workspaceRepository
                 .findByProgramIdAndSourcePostIdAndStatus(
                         program.getId(),
@@ -123,7 +126,7 @@ public class WorkspaceService {
                         WorkspaceStatus.ACTIVE
                 )
                 .orElseGet(() -> {
-                    // 없으면 새로 생성
+                    // If none exists �� create a new workspace
                     String title = "[멘토링] " + post.getTitle();
                     String description = post.getContent();
 
@@ -140,21 +143,19 @@ public class WorkspaceService {
                     return workspaceRepository.save(newWs);
                 });
 
-        // 2) 멘토/멘티 역할 결정
+        // 2) Determine mentor and mentee depending on post type
         User mentor;
         User mentee;
 
         if (post.getType() == PostType.MENTOR_RECRUIT) {
-            // 멘토 모집글: 글 작성자 = 멘토, 신청자 = 멘티
             mentor = post.getAuthor();
             mentee = application.getFromUser();
         } else {
-            // 멘티 요청글: 글 작성자 = 멘티, 신청자 = 멘토
             mentor = application.getFromUser();
             mentee = post.getAuthor();
         }
 
-        // 3) 멤버 중복 가입 방지 후 추가
+        // 3) Register members if not already added
         if (!workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspace.getId(), mentor.getId())) {
             workspaceMemberRepository.save(buildMember(workspace, mentor, WorkspaceRole.MENTOR));
         }
@@ -163,7 +164,7 @@ public class WorkspaceService {
             workspaceMemberRepository.save(buildMember(workspace, mentee, WorkspaceRole.MENTEE));
         }
 
-        // 4) 워크스페이스 전용 연락처 보장 (이 워크스페이스 안에서 서로 이메일 볼 수 있게)
+        // 4) Ensure workspace-specific email visibility
         ensureWorkspaceEmailContact(mentor, workspace);
         ensureWorkspaceEmailContact(mentee, workspace);
 
@@ -171,32 +172,36 @@ public class WorkspaceService {
     }
 
     /**
-     * 워크스페이스 상세 조회 (멤버 + 연락처 포함)
+     * Get workspace detail ? only members can access.
      */
     public WorkspaceDetailResponse getWorkspace(Long workspaceId) {
-        User me = userService.getCurrentUser();
+    User me = userService.getCurrentUser();
 
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "워크스페이스를 찾을 수 없습니다."));
+    Workspace workspace = workspaceRepository.findById(workspaceId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "Workspace not found."));
 
-        boolean isMember = workspace.getMembers().stream()
-                .anyMatch(m -> m.getUser().getId().equals(me.getId()));
+    boolean isMember = workspace.getMembers().stream()
+            .anyMatch(m -> m.getUser().getId().equals(me.getId()));
+    boolean isAdmin = me.getRole() == Role.ADMIN;
 
-        if (!isMember) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "이 워크스페이스에 접근할 수 없습니다.");
-        }
-
-        return toDetailResponse(workspace);
+    // Only members can see the workspace, except ADMIN who can see everything
+    if (!isMember && !isAdmin) {
+        throw new BusinessException(ErrorCode.FORBIDDEN, "You are not allowed to access this workspace.");
     }
 
+    return toDetailResponse(workspace);
+    }
+
+
     /**
-     * 내가 속한 워크스페이스 목록
+     * Get only the workspaces the current user belongs to.
      */
     public List<WorkspaceSummaryResponse> getMyWorkspaces() {
+
         User me = userService.getCurrentUser();
+
         List<WorkspaceMember> memberships = workspaceMemberRepository.findAllByUserId(me.getId());
 
-        // workspace 중복 제거
         List<Workspace> workspaces = memberships.stream()
                 .map(WorkspaceMember::getWorkspace)
                 .distinct()
@@ -207,7 +212,32 @@ public class WorkspaceService {
                 .toList();
     }
 
-    // ===== 내부 도우미 =====
+    /**
+     * Admin: list all workspaces in the system.
+     */
+    public List<WorkspaceSummaryResponse> getAllWorkspacesForAdmin() {
+        List<Workspace> workspaces = workspaceRepository.findAll();
+
+        return workspaces.stream()
+                .map(this::toSummaryResponse)
+                .toList();
+    }
+
+    /**
+     * ADMIN ONLY ? Get all workspaces in the system.
+     */
+    public List<WorkspaceSummaryResponse> getAllWorkspaces() {
+
+        List<Workspace> workspaces = workspaceRepository.findAll();
+
+        return workspaces.stream()
+                .map(this::toSummaryResponse)
+                .toList();
+    }
+
+    // ======================================================
+    // Internal utility methods
+    // ======================================================
 
     private WorkspaceMember buildMember(Workspace workspace, User user, WorkspaceRole role) {
         return WorkspaceMember.builder()
@@ -219,9 +249,11 @@ public class WorkspaceService {
     }
 
     private WorkspaceSummaryResponse toSummaryResponse(Workspace workspace) {
+
         int mentorCount = (int) workspace.getMembers().stream()
                 .filter(m -> m.getRole() == WorkspaceRole.MENTOR)
                 .count();
+
         int menteeCount = (int) workspace.getMembers().stream()
                 .filter(m -> m.getRole() == WorkspaceRole.MENTEE)
                 .count();
@@ -248,7 +280,7 @@ public class WorkspaceService {
                 .map(m -> {
                     var user = m.getUser();
 
-                    // 🔹 이 유저가 이 워크스페이스에서 볼 수 있는 연락처 가져오기
+                    // Fetch contact information visible within this workspace
                     var contactInfos = contactInfoRepository
                             .findVisibleForWorkspace(user.getId(), workspaceId);
 
@@ -286,25 +318,25 @@ public class WorkspaceService {
     }
 
     /**
-     * 워크스페이스 전용 EMAIL contact가 없으면 생성
+     * Create workspace-specific email contact if it does not already exist.
      */
     private void ensureWorkspaceEmailContact(User user, Workspace workspace) {
+
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             return;
         }
 
         boolean exists = contactInfoRepository
                 .existsByUserIdAndTypeAndWorkspace_Id(user.getId(), ContactType.EMAIL, workspace.getId());
-        if (exists) {
-            return;
-        }
+
+        if (exists) return;
 
         ContactInfo emailContact = ContactInfo.builder()
                 .user(user)
-                .workspace(workspace)               // ✅ 이 워크스페이스 전용
+                .workspace(workspace)
                 .type(ContactType.EMAIL)
                 .value(user.getEmail())
-                .primary(true)                      // 이 워크스페이스 기준 primary
+                .primary(true)
                 .visibleToWorkspaceMembers(true)
                 .build();
 
