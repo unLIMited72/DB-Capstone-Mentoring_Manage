@@ -1,6 +1,8 @@
 package com.mentoring.mentoringbackend.workspace.web;
 
 import com.mentoring.mentoringbackend.common.dto.ApiResponse;
+import com.mentoring.mentoringbackend.common.exception.CustomException;
+import com.mentoring.mentoringbackend.common.exception.ErrorCode;
 import com.mentoring.mentoringbackend.workspace.dto.WorkspaceCreateRequest;
 import com.mentoring.mentoringbackend.workspace.dto.WorkspaceDetailResponse;
 import com.mentoring.mentoringbackend.workspace.dto.WorkspaceSummaryResponse;
@@ -8,6 +10,12 @@ import com.mentoring.mentoringbackend.workspace.service.WorkspaceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+// WorkspaceController.java
+
+import com.mentoring.mentoringbackend.auth.SecurityUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 
 import java.util.List;
 
@@ -36,7 +44,16 @@ public class WorkspaceController {
 
     // 내가 속한 워크스페이스 목록
     @GetMapping("/me")
-    public ApiResponse<List<WorkspaceSummaryResponse>> getMyWorkspaces() {
-        return ApiResponse.success(workspaceService.getMyWorkspaces());
-    }
+    public ApiResponse<List<WorkspaceSummaryResponse>> getMyWorkspaces(
+            @AuthenticationPrincipal SecurityUserDetails principal
+)   {
+        if (principal == null) {
+            // UserController ���� ���� �Ͱ� ������ ���� ���� ���
+            throw new CustomException(ErrorCode.AUTH_UNAUTHORIZED, "인증되지 않은 요청입니다.");
+        }
+
+        Long userId = principal.getId();   // SecurityUserDetails 안에 있는 id 꺼내기
+
+        return ApiResponse.success(workspaceService.getMyWorkspaces(userId));
+}
 }

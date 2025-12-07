@@ -58,6 +58,7 @@ public class SecurityConfig {
                         //    ⚠️ 반드시 "/api/users/**"보다 위에 있어야 함!
                         .requestMatchers("/api/users/me/**").authenticated()
                         .requestMatchers("/api/profile/**").authenticated()
+                        .requestMatchers("/api/workspaces/me").authenticated()
 
                         // 2. 그 외 /api/users/** 는 관리자만
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
