@@ -1,5 +1,6 @@
 package com.mentoring.mentoringbackend.academic.web;
 
+import com.mentoring.mentoringbackend.academic.domain.ProgramType;
 import com.mentoring.mentoringbackend.academic.dto.ProgramDto;
 import com.mentoring.mentoringbackend.academic.service.AcademicService;
 import jakarta.validation.Valid;
@@ -12,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/academic/programs")
+@RequestMapping("/academic/programs")   // ?? ���⿡�� /api ����!
 public class ProgramController {
 
     private final AcademicService academicService;
@@ -22,7 +23,15 @@ public class ProgramController {
             @RequestParam(name = "semesterId", required = false) Long semesterId,
             @RequestParam(name = "activeOnly", defaultValue = "false") boolean activeOnly
     ) {
-        return academicService.getPrograms(semesterId, activeOnly);
+        ProgramDto dummy = ProgramDto.builder()
+                .id(1L)
+                .semesterId(1L)
+                .name("한서튜터링")
+                .type(ProgramType.TUTORING)
+                .isActive(true)
+                .build();
+
+        return List.of(dummy);
     }
 
     @PostMapping
